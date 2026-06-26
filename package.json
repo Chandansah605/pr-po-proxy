@@ -1,0 +1,10 @@
+{
+  "name": "pr-po-proxy",
+  "version": "1.0.0",
+  "description": "Azure Function proxy: D365 F&O OData -> PR/PO dashboard JSON (with CORS).",
+  "main": "src/functions/*.js",
+  "engines": { "node": ">=20.0.0" },
+  "dependencies": {
+    "@azure/functions": "^4.5.0"
+  }
+}

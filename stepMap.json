@@ -1,0 +1,11 @@
+{
+  "_comment": "Maps workflow ElementId (GUID) -> readable Step name. GUIDs are workflow-version-specific, so a step name may have several GUIDs. Seeded from live resolution on 2026-06-25; COMPLETE THIS from the first live /api/pr response (every row returns stepElementId; map any null stepName GUIDs here, then redeploy).",
+  "20a37c3f-dc8f-47e8-ad9b-303200ec5df9": "PAC Services_Manager",
+  "9308862a-652e-4ce9-ae51-c5c9c27d5e6c": "PAC Services_Manager",
+  "80d356b4-96d9-45f9-be0a-265a7a092e80": "Quotation received and logged/attached",
+  "d87d3fce-f01e-4ff3-a149-dc1ffc7d3e3e": "Finance & Accounts_Accounting Manager",
+  "d9ddcf8c-4164-42cf-a795-51ac3fbc64ae": "Handyman Services_Manager",
+  "f2dcfa29-c84b-412e-b716-807d43d5cc9a": "Handyman Services_Manager",
+  "dc642b4b-5dc5-4dca-b097-f7b56a046c3a": "Landscaping_Manager",
+  "df6601c0-5dd5-48cf-bf47-62e7e6bc3beb": "Landscaping_Manager"
+}
