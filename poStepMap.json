@@ -1,0 +1,3 @@
+{
+  "_comment": "PO workflow ElementId (GUID) -> readable Step name. To be completed from the first live /api/po response joined to the PO export (every row returns stepElementId). Until populated, PO stepName is null (rows still carry stepElementId)."
+}

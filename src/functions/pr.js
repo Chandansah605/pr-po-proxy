@@ -1,5 +1,6 @@
 const { app } = require('@azure/functions');
 const STEP_MAP = require('../../stepMap.json');
+const PO_STEP_MAP = require('../../poStepMap.json');
 
 // ---- simple in-memory cache (per warm instance) ----
 const CACHE_MS = 3 * 60 * 1000;
@@ -53,6 +54,12 @@ async function odataAll(token, path) {
 
 function num(x) { const n = Number(x); return Number.isFinite(n) ? n : 0; }
 function prKey(s) { const m = String(s || '').match(/C?PR-\d+/); return m ? m[0] : null; }
+function poKey(s) {
+  const m = String(s || '').match(/Purchase Order:\s*([A-Za-z0-9\-]+)/);
+  if (m) return m[1];
+  const m2 = String(s || '').match(/[A-Z]+-PO\d+|PO?\d{6,}/);
+  return m2 ? m2[0] : null;
+}
 // DefaultLedgerDimensionDisplayValue looks like "-Contracted--Building Services--THE8-Materials-Threshold-"
 // First three non-empty segments = Contract, Department, Location(Project).
 function parseDim(s) {
@@ -65,15 +72,13 @@ function parseDim(s) {
 async function buildPR() {
   const token = await getToken();
 
-  // 1) headers (paged in full)
   const headers = await odataAll(token,
     "PurchaseRequisitionHeaders?$select=RequisitionNumber,RequisitionName,RequisitionStatus,DefaultProjectId,IFAHRQuotationReference,PreparerPersonnelNumber,RequisitionPurpose,DefaultRequestedDate");
 
-  // 2) lines (for total amount + financial dimensions)
   const lines = await odataAll(token,
     "PurchaseRequisitionLines?$select=RequisitionNumber,LineAmount,DefaultLedgerDimensionDisplayValue");
 
-  const lineAgg = {}; // RequisitionNumber -> {total, first}
+  const lineAgg = {};
   for (const l of lines) {
     const k = l.RequisitionNumber;
     if (!k) continue;
@@ -81,11 +86,10 @@ async function buildPR() {
     lineAgg[k].total += num(l.LineAmount);
   }
 
-  // 3) workflow work items for purchase requisitions (pending = current step)
   const wi = await odataAll(token,
     "WorkflowWorkItems?$filter=MenuItemName eq 'PurchReqTable'&$select=Subject,ElementId,Status,UserId,DueDateTime");
 
-  const current = {}; // PR -> latest pending work item
+  const current = {};
   for (const w of wi) {
     if (w.Status !== 'Pending') continue;
     const k = prKey(w.Subject);
@@ -94,7 +98,6 @@ async function buildPR() {
     if (!prev || new Date(w.DueDateTime) > new Date(prev.DueDateTime)) current[k] = w;
   }
 
-  // 4) merge
   const rows = headers.map(h => {
     const k = h.RequisitionNumber;
     const agg = lineAgg[k];
@@ -106,12 +109,12 @@ async function buildPR() {
       purchaseRequisition: k,
       quotationReference: h.IFAHRQuotationReference || null,
       name: h.RequisitionName || null,
-      preparer: h.PreparerPersonnelNumber || null,        // TODO: resolve personnel number -> worker name
+      preparer: h.PreparerPersonnelNumber || null,
       projectId: h.DefaultProjectId || null,
       status: h.RequisitionStatus || null,
-      createdDate: h.DefaultRequestedDate || null,         // TODO: confirm true Created/Submitted dates
-      submittedDate: null,                                 // TODO
-      acceptedByAssignTo: null,                            // TODO
+      createdDate: h.DefaultRequestedDate || null,
+      submittedDate: null,
+      acceptedByAssignTo: null,
       department: dim.department,
       location: dim.location,
       contract: dim.contract,
@@ -119,12 +122,78 @@ async function buildPR() {
       pendingApprover: w ? w.UserId : null,
       stepName: elementId ? (STEP_MAP[elementId] || null) : null,
       stepDateTime: w ? w.DueDateTime : null,
-      stepElementId: elementId,                            // used to complete stepMap.json
+      stepElementId: elementId,
       ledgerDimensionRaw: line.DefaultLedgerDimensionDisplayValue || null
     };
   });
 
   return { type: 'pr', generatedAt: new Date().toISOString(), count: rows.length, rows };
+}
+
+// ---- assemble PO rows ----
+async function buildPO() {
+  const token = await getToken();
+
+  const headers = await odataAll(token,
+    "PurchaseOrderHeadersV2?$select=PurchaseOrderNumber,OrderVendorAccountNumber,PurchaseOrderName,CurrencyCode,PurchaseOrderStatus,DocumentApprovalStatus,ProjectId,RequestedDeliveryDate");
+
+  const lines = await odataAll(token,
+    "PurchaseOrderLinesV2?$select=PurchaseOrderNumber,LineAmount,DefaultLedgerDimensionDisplayValue");
+
+  const lineAgg = {};
+  for (const l of lines) {
+    const k = l.PurchaseOrderNumber;
+    if (!k) continue;
+    if (!lineAgg[k]) lineAgg[k] = { total: 0, first: l };
+    lineAgg[k].total += num(l.LineAmount);
+  }
+
+  const vendors = await odataAll(token,
+    "VendorsV2?$select=VendorAccountNumber,VendorOrganizationName");
+  const vname = {};
+  for (const v of vendors) { if (v.VendorAccountNumber) vname[v.VendorAccountNumber] = v.VendorOrganizationName || ''; }
+
+  const wi = await odataAll(token,
+    "WorkflowWorkItems?$filter=MenuItemName eq 'PurchTable'&$select=Subject,ElementId,Status,UserId,DueDateTime");
+  const current = {};
+  for (const w of wi) {
+    if (w.Status !== 'Pending') continue;
+    const k = poKey(w.Subject);
+    if (!k) continue;
+    const prev = current[k];
+    if (!prev || new Date(w.DueDateTime) > new Date(prev.DueDateTime)) current[k] = w;
+  }
+
+  const rows = headers.map(h => {
+    const k = h.PurchaseOrderNumber;
+    const agg = lineAgg[k];
+    const line = agg ? agg.first : {};
+    const w = current[k];
+    const elementId = w ? w.ElementId : null;
+    const dim = parseDim(line.DefaultLedgerDimensionDisplayValue);
+    return {
+      purchaseOrder: k,
+      linkedPR: h.PurchaseRequisitionNumber || null,
+      vendorName: vname[h.OrderVendorAccountNumber] || h.OrderVendorAccountNumber || null,
+      name: h.PurchaseOrderName || null,
+      approvalStatus: h.DocumentApprovalStatus || null,
+      poStatus: h.PurchaseOrderStatus || null,
+      currency: h.CurrencyCode || null,
+      projectId: h.ProjectId || null,
+      createdDate: h.RequestedDeliveryDate || null,
+      department: dim.department,
+      location: dim.location,
+      contract: dim.contract,
+      totalAmount: agg ? Math.round(agg.total * 100) / 100 : 0,
+      pendingApprover: w ? w.UserId : null,
+      stepName: elementId ? (PO_STEP_MAP[elementId] || null) : null,
+      stepDateTime: w ? w.DueDateTime : null,
+      stepElementId: elementId,
+      ledgerDimensionRaw: line.DefaultLedgerDimensionDisplayValue || null
+    };
+  });
+
+  return { type: 'po', generatedAt: new Date().toISOString(), count: rows.length, rows };
 }
 
 async function serve(kind, request, context) {
@@ -136,10 +205,7 @@ async function serve(kind, request, context) {
     if (cache[kind] && now - cache[kind].at < CACHE_MS) {
       return { status: 200, headers, jsonBody: { ...cache[kind].data, cached: true } };
     }
-    if (kind === 'po') {
-      return { status: 501, headers, jsonBody: { error: 'PO not implemented yet — PR validated first.' } };
-    }
-    const data = await buildPR();
+    const data = kind === 'po' ? await buildPO() : await buildPR();
     cache[kind] = { at: now, data };
     return { status: 200, headers, jsonBody: data };
   } catch (e) {
