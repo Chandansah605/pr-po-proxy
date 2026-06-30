@@ -221,8 +221,12 @@ async function serve(kind, request, context) {
   const headers = { 'Content-Type': 'application/json', ...cors() };
   if (request.method === 'OPTIONS') return { status: 204, headers };
 
+  // Access is gated by the ?code= function key (authLevel:'function').
+  // The Entra user-token check is optional: enforced only when a token is sent,
+  // so the dashboards' key-only calls work (matches the original design).
   try {
-    await requireUser(request);
+    const authz = (request.headers.get && request.headers.get('authorization')) || '';
+    if (authz) await requireUser(request);
   } catch (e) {
     return { status: 401, headers, jsonBody: { error: 'unauthorized' } };
   }
