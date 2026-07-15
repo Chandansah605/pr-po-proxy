@@ -87,8 +87,18 @@ function parseDim(s) {
 async function buildPR() {
   const token = await getToken();
 
-  const headers = await odataAll(token,
-    "PurchaseRequisitionHeaders?$select=RequisitionNumber,RequisitionName,RequisitionStatus,DefaultProjectId,IFAHRQuotationReference,PreparerPersonnelNumber,RequisitionPurpose,DefaultRequestedDate");
+  // Try the IFAHR custom fields first (exact Step name etc. straight from PurchReqTable).
+  // Until the F&O developer exposes them on OData (see FO-CUSTOM-ENTITY-SPEC-step-name.md),
+  // this $select fails and we fall back to the workflow-work-item reconstruction below.
+  const BASE_HDR = "RequisitionNumber,RequisitionName,RequisitionStatus,DefaultProjectId,IFAHRQuotationReference,PreparerPersonnelNumber,RequisitionPurpose,DefaultRequestedDate";
+  const IFAHR_HDR = BASE_HDR + ",IFAHRPendingStep,IFAHRPendngDateTime,IFAHRPendingUser,IFAHRPRWFAcceptedBy,IFAHRDepartment,IFAHRLocation,IFAHRContract,IFAHRSubmissionStatus,IFAHRPurchRFQCaseId";
+  let headers, ifahrLive = false;
+  try {
+    headers = await odataAll(token, "PurchaseRequisitionHeaders?$select=" + IFAHR_HDR);
+    ifahrLive = true;
+  } catch (e) {
+    headers = await odataAll(token, "PurchaseRequisitionHeaders?$select=" + BASE_HDR);
+  }
 
   const lines = await odataAll(token,
     "PurchaseRequisitionLines?$select=RequisitionNumber,LineAmount,DefaultLedgerDimensionDisplayValue");
@@ -110,13 +120,17 @@ async function buildPR() {
   const wi = await odataAll(token,
     "WorkflowWorkItems?$filter=MenuItemName eq 'PurchReqTable'&$select=Subject,ElementId,Status,UserId,DueDateTime");
 
-  const current = {};
+  const current = {}, lastDone = {};
   for (const w of wi) {
-    if (w.Status !== 'Pending') continue;
     const k = prKey(w.Subject);
     if (!k) continue;
-    const prev = current[k];
-    if (!prev || new Date(w.DueDateTime) > new Date(prev.DueDateTime)) current[k] = w;
+    if (w.Status === 'Pending') {
+      const prev = current[k];
+      if (!prev || new Date(w.DueDateTime) > new Date(prev.DueDateTime)) current[k] = w;
+    } else if (w.Status === 'Completed') {
+      const prev = lastDone[k];
+      if (!prev || new Date(w.DueDateTime) > new Date(prev.DueDateTime)) lastDone[k] = w;
+    }
   }
 
   const rows = headers.map(h => {
@@ -135,20 +149,22 @@ async function buildPR() {
       status: h.RequisitionStatus || null,
       createdDate: (biMap[k] && biMap[k].TransDate) || h.DefaultRequestedDate || null,
       submittedDate: (biMap[k] && biMap[k].SubmittedDateTime) || null,
-      acceptedByAssignTo: null,
-      department: dim.department,
-      location: dim.location,
-      contract: dim.contract,
+      acceptedByAssignTo: (ifahrLive && h.IFAHRPRWFAcceptedBy) || (lastDone[k] ? lastDone[k].UserId : null),
+      department: (ifahrLive && h.IFAHRDepartment) || dim.department,
+      location: (ifahrLive && h.IFAHRLocation) || dim.location,
+      contract: (ifahrLive && h.IFAHRContract) || dim.contract,
+      submissionStatus: ifahrLive ? (h.IFAHRSubmissionStatus || null) : null,
+      rfqCase: ifahrLive ? (h.IFAHRPurchRFQCaseId || null) : null,
       totalAmount: agg ? Math.round(agg.total * 100) / 100 : 0,
-      pendingApprover: w ? w.UserId : null,
-      stepName: elementId ? (STEP_MAP[elementId] || null) : null,
-      stepDateTime: w ? w.DueDateTime : null,
+      pendingApprover: (ifahrLive && h.IFAHRPendingUser) || (w ? w.UserId : null),
+      stepName: (ifahrLive && h.IFAHRPendingStep) || (elementId ? (STEP_MAP[elementId] || null) : null),
+      stepDateTime: (ifahrLive && h.IFAHRPendngDateTime) || (w ? w.DueDateTime : null),
       stepElementId: elementId,
       ledgerDimensionRaw: line.DefaultLedgerDimensionDisplayValue || null
     };
   });
 
-  return { type: 'pr', generatedAt: new Date().toISOString(), count: rows.length, rows };
+  return { type: 'pr', generatedAt: new Date().toISOString(), ifahrLive, count: rows.length, rows };
 }
 
 // ---- assemble PO rows ----

@@ -1,6 +1,6 @@
 {
-  "_comment": "PO workflow ElementId (GUID) -> readable Step name, resolved from live /api/po joined to po.xlsx export (2026-06-29). Only workflow-approval steps appear here (currently active set). Operational steps like 'LPO sent/shared with supplier' and 'Advance payment request submitted' are not approval work items; the dashboard derives those from PO status fields. Add new GUIDs as POs reach other approval steps.",
-  "44535f4f-3bdc-4b79-a36a-1fb1159c0e2a": "Accounting Manager",
-  "6e8620ee-d790-4e29-b2c1-13b2e18591f3": "Accounting Manager",
-  "1afc2329-18a6-4ef8-81c1-c320b6627810": "Procurement Manager"
+ "1afc2329-18a6-4ef8-81c1-c320b6627810": "Procurement Manager",
+ "44535f4f-3bdc-4b79-a36a-1fb1159c0e2a": "Finance and Accounts Director",
+ "6e8620ee-d790-4e29-b2c1-13b2e18591f3": "Accounting Manager",
+ "_comment": "PO workflow ElementId (GUID) -> readable Step name, resolved from live /api/po joined to po.xlsx export (2026-06-29). Only workflow-approval steps appear here (currently active set). Operational steps like 'LPO sent/shared with supplier' and 'Advance payment request submitted' are not approval work items; the dashboard derives those from PO status fields. Add new GUIDs as POs reach other approval steps."
 }
