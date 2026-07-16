@@ -252,7 +252,9 @@ function parseVms(buf) {
 }
 
 /* ================= build the table model + email HTML ================= */
-function buildEmail(vmsRecords, scRows) {
+// warnNote (optional): shown as an orange banner under the subtitle — used when the
+// morning VMS refresh failed and the competitor side comes from the last published file.
+function buildEmail(vmsRecords, scRows, warnNote) {
   // 3 most recent dates present in the visitor data, oldest -> newest
   const dset = {};
   vmsRecords.forEach(r => { if (r && r.date) dset[r.date] = 1; });
@@ -391,6 +393,7 @@ function buildEmail(vmsRecords, scRows) {
     '<div style="font-family:' + FONT + ';color:#22303c;">' +
     '<div style="font-family:' + FONT + ';font-weight:700;font-size:16px;color:#145A95;border-left:4px solid #618FB4;padding-left:10px;margin:0 0 4px;">VISITOR TELEMETRY (FLAGSHIP PROJECTS) - LAST 3 DAYS</div>' +
     '<div style="font-family:' + FONT + ';font-size:13px;color:#607083;margin:0 0 10px;">S &amp; C = our visits &#183; Other = competitor &#183; snapshot taken ' + stamp + ' (Dubai) &#183; <a href="' + DASHBOARD_URL + '#visitor" style="color:#145A95;font-weight:700;text-decoration:none;">Open the Live Dashboard</a> for more details and drill-through</div>' +
+    (warnNote ? '<div style="font-family:' + FONT + ';font-size:12px;font-weight:700;color:#9A3412;background:#FFF7ED;border:1px solid #FDBA74;border-radius:5px;padding:6px 10px;margin:0 0 10px;display:inline-block;">&#9888;&#65039; ' + escHtml(warnNote) + '</div>' : '') +
     '<div style="border:1px solid #dbe3ec;border-radius:12px;overflow:hidden;display:inline-block;">' +
     '<table cellpadding="0" cellspacing="0" border="0" width="' + TOTAL_W + '" style="border-collapse:collapse;table-layout:fixed;width:' + TOTAL_W + 'px;background:#ffffff;">' + head + body + '</table>' +
     '</div>' +
@@ -442,13 +445,15 @@ async function runReport(context, doSend) {
   } catch (e) {
     if (context) context.warn('VMS refresh failed, falling back to last published visitor.xlsx: ' + e.message);
   }
+  let warnNote = null;
   if (!vms) {
     const vr = await fetch(VMS_URL + '?t=' + Date.now());
     if (!vr.ok) throw new Error('visitor.xlsx fetch failed: ' + vr.status);
     vms = parseVms(Buffer.from(await vr.arrayBuffer()));
+    warnNote = 'Live visitor-log refresh failed this morning — competitor (Other) columns show the last published data. S & C figures are live.';
   }
   const scRows = await fetchTelemetryRows(context);
-  const out = buildEmail(vms, scRows);
+  const out = buildEmail(vms, scRows, warnNote);
   out.refresh = refreshInfo || { fallback: 'last published visitor.xlsx' };
   if (doSend) await sendMail(out.subject, out.html, context);
   return out;
