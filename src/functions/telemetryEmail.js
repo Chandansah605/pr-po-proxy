@@ -310,8 +310,9 @@ function buildEmail(vmsRecords, scRows) {
   const W_PROJ = 150, W_UNITS = 80, W_DATE = 105, W_SC = 52, W_OT = 122, W_PCT = 72;
   const TOTAL_W = W_PROJ + W_UNITS + W_DATE + 5 * (W_SC + W_OT + W_PCT);
 
-  const thBase = 'color:#ffffff;font-family:' + FONT + ';font-weight:700;font-size:12.5px;padding:9px 8px;text-align:center;white-space:nowrap;border:0;border-right:1px solid rgba(255,255,255,.25);';
-  const thSub = 'color:#ffffff;font-family:' + FONT + ';font-weight:700;font-size:10.5px;padding:6px 4px;text-align:center;white-space:nowrap;border:0;border-right:1px solid rgba(255,255,255,.25);';
+  // no internal header borders — translucent borders render as white hairlines in Outlook at some zoom levels
+  const thBase = 'color:#ffffff;font-family:' + FONT + ';font-weight:700;font-size:12.5px;padding:9px 8px;text-align:center;white-space:nowrap;border:0;';
+  const thSub = 'color:#ffffff;font-family:' + FONT + ';font-weight:700;font-size:10.5px;padding:6px 4px;text-align:center;white-space:nowrap;border:0;';
 
   const groups = [['ALL', 'All Visitors']].concat(TELE_SVCS.map(s => [s, TELE_LBL[s]]));
   let head = '<tr>'
@@ -336,7 +337,7 @@ function buildEmail(vmsRecords, scRows) {
     let bg = '#fde8e8', fg = '#c81e1e';
     if (pn >= 50) { bg = '#def7ec'; fg = '#03543f'; }
     else if (pn >= 20) { bg = '#fdf6b2'; fg = '#723b13'; }
-    return '<span style="display:inline-block;padding:3px 10px;border-radius:5px;background:' + bg + ';color:' + fg + ';font-weight:700;font-size:11px;">' + pn + '%</span>';
+    return '<span style="display:inline-block;padding:4px 12px;border-radius:5px;background:' + bg + ';color:' + fg + ';font-weight:700;font-size:12px;">' + pn + '%</span>';
   }
 
   let body = '';
@@ -385,7 +386,7 @@ function buildEmail(vmsRecords, scRows) {
   const html =
     '<div style="font-family:' + FONT + ';color:#22303c;">' +
     '<div style="font-family:' + FONT + ';font-weight:700;font-size:16px;color:#145A95;border-left:4px solid #618FB4;padding-left:10px;margin:0 0 4px;">VISITOR TELEMETRY (FLAGSHIP PROJECTS) - LAST 3 DAYS</div>' +
-    '<div style="font-family:' + FONT + ';font-size:13px;color:#607083;margin:0 0 10px;">S &amp; C = our visits &#183; Other = competitor &#183; snapshot taken ' + stamp + ' (Dubai) &#183; <a href="' + DASHBOARD_URL + '" style="color:#145A95;font-weight:700;text-decoration:none;">Open the Live Dashboard</a> for more details and drill-through</div>' +
+    '<div style="font-family:' + FONT + ';font-size:13px;color:#607083;margin:0 0 10px;">S &amp; C = our visits &#183; Other = competitor &#183; snapshot taken ' + stamp + ' (Dubai) &#183; <a href="' + DASHBOARD_URL + '#visitor" style="color:#145A95;font-weight:700;text-decoration:none;">Open the Live Dashboard</a> for more details and drill-through</div>' +
     '<div style="border:1px solid #dbe3ec;border-radius:12px;overflow:hidden;display:inline-block;">' +
     '<table cellpadding="0" cellspacing="0" border="0" width="' + TOTAL_W + '" style="border-collapse:collapse;table-layout:fixed;width:' + TOTAL_W + 'px;background:#ffffff;">' + head + body + '</table>' +
     '</div>' +
