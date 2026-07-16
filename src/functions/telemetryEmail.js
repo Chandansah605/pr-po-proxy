@@ -299,7 +299,7 @@ function buildEmail(vmsRecords, scRows) {
   const FONT = 'Aptos,Segoe UI,Arial,sans-serif';
   const NAVYD = '#14315E';                                   // dark navy (labels + first 3 header cols)
   const GRP = {                                              // [group header colour, sub-header colour]
-    ALL: ['#1D4ED8', '#14315E'],
+    ALL: ['#1D4ED8', '#1E40AF'],
     LAUNDRY: ['#6D28D9', '#4C1D95'],
     HOUSEKEEP: ['#16A34A', '#166534'],
     MAINT: ['#EA580C', '#9A3412'],
@@ -307,7 +307,7 @@ function buildEmail(vmsRecords, scRows) {
   };
   const TICON = { ALL: '&#128101;', LAUNDRY: '&#129530;', HOUSEKEEP: '&#129529;', MAINT: '&#128736;&#65039;', FITOUT: '&#127959;&#65039;' }; // 👥 🧺 🧹 🛠️ 🏗️
   // fixed column widths (px) — table-layout:fixed keeps them constant on any screen
-  const W_PROJ = 150, W_UNITS = 80, W_DATE = 105, W_SC = 52, W_OT = 104, W_PCT = 72;
+  const W_PROJ = 150, W_UNITS = 80, W_DATE = 105, W_SC = 52, W_OT = 122, W_PCT = 72;
   const TOTAL_W = W_PROJ + W_UNITS + W_DATE + 5 * (W_SC + W_OT + W_PCT);
 
   const thBase = 'color:#ffffff;font-family:' + FONT + ';font-weight:700;font-size:12.5px;padding:9px 8px;text-align:center;white-space:nowrap;border:0;border-right:1px solid rgba(255,255,255,.25);';
@@ -378,14 +378,18 @@ function buildEmail(vmsRecords, scRows) {
   const latest = dates[dates.length - 1];
   const nowDubai = new Date(Date.now() + 4 * 3600 * 1000);
   const stamp = nowDubai.toISOString().slice(0, 10) + ' ' + nowDubai.toISOString().slice(11, 16);
-  const subject = 'Visitor Telemetry — Last 3 Days (' + teleFmtDate(dates[0]) + ' – ' + teleFmtDate(latest) + ') · 9 AM snapshot';
+  const subject = 'Visitor Telemetry (Flagship Projects) - Last 3 Days (' + teleFmtDate(dates[0]) + ' – ' + teleFmtDate(latest) + ')';
 
+  // NOTE: body text uses HTML entities only (&#183; = the dot separator) — literal UTF-8
+  // characters like — and · can render as "â€"" in Outlook depending on charset detection.
   const html =
     '<div style="font-family:' + FONT + ';color:#22303c;">' +
-    '<div style="font-family:' + FONT + ';font-weight:700;font-size:16px;color:#145A95;border-left:4px solid #618FB4;padding-left:10px;margin:0 0 4px;">VISITOR TELEMETRY — LAST 3 DAYS</div>' +
-    '<div style="font-family:' + FONT + ';font-size:11px;color:#607083;margin:0 0 10px;">S &amp; C = our visits · Other = competitor · snapshot taken ' + stamp + ' (Dubai) · <a href="' + DASHBOARD_URL + '" style="color:#145A95;font-weight:700;text-decoration:none;">open the live dashboard</a> for drill-through</div>' +
-    '<table cellpadding="0" cellspacing="0" border="0" width="' + TOTAL_W + '" style="border-collapse:collapse;table-layout:fixed;width:' + TOTAL_W + 'px;border:1px solid #dbe3ec;background:#ffffff;">' + head + body + '</table>' +
-    '<div style="font-family:' + FONT + ';font-size:10px;color:#8b98a5;margin-top:8px;">Automated daily 9:00 AM report · Strive Services Group · data: Candoo bookings &amp; work orders (Dynamics 365) + building visitor logs</div>' +
+    '<div style="font-family:' + FONT + ';font-weight:700;font-size:16px;color:#145A95;border-left:4px solid #618FB4;padding-left:10px;margin:0 0 4px;">VISITOR TELEMETRY (FLAGSHIP PROJECTS) - LAST 3 DAYS</div>' +
+    '<div style="font-family:' + FONT + ';font-size:11px;color:#607083;margin:0 0 10px;">S &amp; C = our visits &#183; Other = competitor &#183; snapshot taken ' + stamp + ' (Dubai) &#183; <a href="' + DASHBOARD_URL + '" style="color:#145A95;font-weight:700;text-decoration:none;">open the live dashboard</a> for drill-through</div>' +
+    '<div style="border:1px solid #dbe3ec;border-radius:12px;overflow:hidden;display:inline-block;">' +
+    '<table cellpadding="0" cellspacing="0" border="0" width="' + TOTAL_W + '" style="border-collapse:collapse;table-layout:fixed;width:' + TOTAL_W + 'px;background:#ffffff;">' + head + body + '</table>' +
+    '</div>' +
+    '<div style="font-family:' + FONT + ';font-size:10px;color:#8b98a5;margin-top:8px;">Automated daily 9:00 AM report &#183; Strive Services Group &#183; data: Candoo bookings &amp; work orders (Dynamics 365) + building visitor logs</div>' +
     '</div>';
 
   return { subject, html, dates };
